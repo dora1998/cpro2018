@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "GCC debug build",
+            "type": "shell",
+            "command": "gcc",
+            "windows": {
+                "command": "$Env:PATH += ';c:/MinGW/bin'; gcc.exe",
+                "args": [
+                    "-g", "-Wall", "-O0", "-o", "\"${fileBasenameNoExtension}.exe\"", "\"${fileBasename}\"", "-lm"
+                ]
+            },
+            "linux": {
+                "args": [
+                    "-g", "-Wall", "-O0", "-o", "\"${fileDirname}/${fileBasenameNoExtension}\"", "${file}", "-lm"
+                ]
+            },
+            "osx": {
+                "args": [
+                    "-g", "-Wall", "-O0", "-o", "${fileDirname}/${fileBasenameNoExtension}", "${file}", "-lm"
+                ]    
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
