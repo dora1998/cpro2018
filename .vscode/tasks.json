@@ -6,7 +6,6 @@
             "type": "shell",
             "command": "gcc",
             "windows": {
-                "command": "$Env:PATH += ';c:/MinGW/bin'; gcc.exe",
                 "args": [
                     "-g", "-Wall", "-O0", "-o", "\"${fileBasenameNoExtension}.exe\"", "\"${fileBasename}\"", "-lm"
                 ]
