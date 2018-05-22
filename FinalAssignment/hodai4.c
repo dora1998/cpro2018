@@ -4,7 +4,7 @@
 void print(int m, int n, const float *x) {
     for (int j = 0; j < m; j++) {
         for (int k = 0; k < n; k++) {
-            printf("%.4f", x[j * m + k]);
+            printf("%.4f", x[j * n + k]);
             if (k != (n - 1)) printf(" ");
         }
         printf("\n");
