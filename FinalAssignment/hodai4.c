@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "nn.h"
 
+const int debugMode = 1;    // 1のとき各層のデバッグ表示
+
 void print(int m, int n, const float *x) {
     for (int j = 0; j < m; j++) {
         for (int k = 0; k < n; k++) {
@@ -11,6 +13,9 @@ void print(int m, int n, const float *x) {
     }
 }
 void fc(int m, int n, const float * x, const float * A, const float * b, float * y) {
+    if (debugMode == 1) {
+        printf("  FC      input(%d x %d), output(%d x 1)\n", m, n, m);
+    }
     for (int j = 0; j < m; j++) {
         y[j] = b[j];
         for (int k = 0; k < n; k++) {
@@ -19,6 +24,9 @@ void fc(int m, int n, const float * x, const float * A, const float * b, float *
     }
 }
 void relu(int n, const float * x, float * y) {
+    if (debugMode == 1) {
+        printf("  ReLU    input(%d x 1), output(%d x 1)\n", n, n);
+    }
     for (int j = 0; j < n; j++) {
         y[j] = x[j] > 0 ? x[j] : 0;
     }

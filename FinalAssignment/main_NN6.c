@@ -6,6 +6,17 @@
 #define M 10
 #define N 784
 
+const int debugMode = 0;
+
+float *train_x = NULL;
+unsigned char *train_y = NULL;
+int train_count = -1;
+float *test_x = NULL;
+unsigned char *test_y = NULL;
+int test_count = -1;
+int width = -1;
+int height = -1;
+
 void print(int m, int n, const float *x) {
     for (int j = 0; j < m; j++) {
         for (int k = 0; k < n; k++) {
@@ -77,6 +88,7 @@ void rand_init(int n, float * o) {
 }
 
 void fc(int m, int n, const float * x, const float * A, const float * b, float * y) {
+    if (debugMode == 1) printf("  FC      input(%d x %d), output(%d x 1)\n", m, n, m);
     for (int j = 0; j < m; j++) {
         y[j] = b[j];
         for (int k = 0; k < n; k++) {
@@ -85,12 +97,14 @@ void fc(int m, int n, const float * x, const float * A, const float * b, float *
     }
 }
 void relu(int n, const float * x, float * y) {
+    if (debugMode == 1) printf("  ReLU    input(%d x 1), output(%d x 1)\n", n, n);
     for (int j = 0; j < n; j++) {
         y[j] = x[j] > 0 ? x[j] : 0;
     }
 }
 
 void softmax(int n, const float * x, float * y) {
+    if (debugMode == 1) printf("  Softmax input(%d x 1), output(%d x 1)\n", n, n);
     float xm = amax(n, x);
     float xsum = 0;
     for (int j = 0; j < n; j++) {
@@ -104,6 +118,7 @@ void softmax(int n, const float * x, float * y) {
 
 // 教材よりyを引数に追加して取得できるように
 int inference3(const float * A, const float * b, const float * x, float * y) {
+    if (debugMode == 1) printf(" Inference3\n");
     fc(M, N, x, A, b, y);
     relu(M, y, y);
     softmax(M, y, y);
@@ -163,6 +178,8 @@ void fc_bwd(int m, int n, const float * x, const float * dy, const float * A,
 
 void backward3(const float * A, const float * b, const float * x, unsigned char t,
         float * y, float * dA, float * db) {
+    if (debugMode == 1) printf(" Backward3\n");
+    
     float x_relu[M];
     fc(M, N, x, A, b, y);
     acopy(M, y, x_relu);
@@ -186,19 +203,68 @@ float loss(const float * y, int t) {
     return - log(y[t] + 1e-7);
 }
 
+// 学習関連
+void updateParam(float *A, float *b, float *dA, float *db, const int n, const float srate);
+// 学習メイン関数
+void studyImage(float *A, float *b, int n, float study_rate) {
+    int studyTimes = train_count / n;
+    if (debugMode == 1) printf("Study train_count=%d, n=%d, study_rate=%f\n", train_count, n, study_rate);
+    
+    // (a)
+    int *index = malloc(sizeof(int)*train_count);
+    for(int k = 0; k < train_count; k++) {
+        index[k] = k;
+    }
+    shuffle(train_count, index);
+
+    // (b)
+    float * a_dA = malloc(sizeof(float)*784*10);
+    float * a_db = malloc(sizeof(float)*10);
+    for (int k = 0; k < studyTimes; k++) {
+        init(784 * 10, 0, a_dA);
+        init(10, 0, a_db);
+
+        for (int l = 0; l < n; l++) {
+            float * y = malloc(sizeof(float)*10);
+            float * dA = malloc(sizeof(float)*784*10);
+            float * db = malloc(sizeof(float)*10);
+            backward3(A, b, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA, db);
+            add(M * N, dA, a_dA);
+            add(M, db, a_db);               
+        }
+        updateParam(A, b, a_dA, a_db, n, study_rate);
+    }
+}
+// A, bをdA, dbにもとづいてアップデート
+void updateParam(float *A, float *b, float *dA, float *db, const int n, const float srate) {
+    divide(M * N, n, dA);
+    divide(M, n, db);
+    scale(M * N, - srate, dA);
+    scale(M, - srate, db);
+    add(M * N, dA, A);
+    add(M, db, b);
+}
 
 // テスト
+void testData(const float *A, const float *b, float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
+    int sum = 0;
+    *l = 0;
+    for(int k = 0; k < count; k++) {
+        float y[10];
+        if(inference3(A, b, start_x + k*width*height, y) == res_y[k]) {
+            sum++;
+        }
+        *l += loss(y, res_y[k]);
+    }
+    *l /= 1.0 * count;
+    *correct = sum * 100.0 / count;
+}
+
 int main() {
+    clock_t t_start, t_end;
+    t_start = clock();
     srand(time(NULL));
 
-    float *train_x = NULL;
-    unsigned char *train_y = NULL;
-    int train_count = -1;
-    float *test_x = NULL;
-    unsigned char *test_y = NULL;
-    int test_count = -1;
-    int width = -1;
-    int height = -1;
     load_mnist(&train_x, &train_y, &train_count,
                 &test_x, &test_y, &test_count,
                 &width, &height);
@@ -208,10 +274,10 @@ int main() {
     // を使用することができる.
 
     // 1~3
-    int epoc = 10;
+    int epoc = 30;
     int minipatch_n = 100;
-    int study = train_count / minipatch_n;
     float study_rate = 0.3;
+    // int studyTimes = train_count / minipatch_n;
 
     // 4.
     float * A = malloc(sizeof(float)*784*10);
@@ -220,49 +286,17 @@ int main() {
     rand_init(M, b);
 
     for (int j = 0; j < epoc; j++) {
-        // (a)
-        int *index = malloc(sizeof(int)*train_count);
-        for(int k = 0; k < train_count; k++) {
-            index[k] = k;
-        }
-        shuffle(train_count, index);
-
-        // (b)
-        float * a_dA = malloc(sizeof(float)*784*10);
-        float * a_db = malloc(sizeof(float)*10);
-        for (int k = 0; k < study; k++) {
-            init(784 * 10, 0, a_dA);
-            init(10, 0, a_db);
-
-            for (int l = 0; l < minipatch_n; l++) {
-                float * y = malloc(sizeof(float)*10);
-                float * dA = malloc(sizeof(float)*784*10);
-                float * db = malloc(sizeof(float)*10);
-                backward3(A, b, train_x + 784*index[k * minipatch_n + l], train_y[index[k * minipatch_n + l]], y, dA, db);
-                add(M * N, dA, a_dA);
-                add(M, db, a_db);               
-            }
-            divide(M * N, minipatch_n, a_dA);
-            divide(M, minipatch_n, a_db);
-            scale(M * N, - study_rate, a_dA);
-            scale(M, - study_rate, a_db);
-            add(M * N, a_dA, A);
-            add(M, a_db, b);
-        }
+        // (a)(b)
+        studyImage(A, b, minipatch_n, study_rate);
 
         // (c) cf)補題7
-        int sum = 0;
-        float avg_loss = 0;
-        for(int k = 0; k < test_count; k++) {
-            float y[10];
-            if(inference3(A, b, test_x + k*width*height, y) == test_y[k]) {
-                sum++;
-            }
-            avg_loss += loss(y, test_y[k]);
-        }
-        avg_loss /= 1.0 * test_count;
-        printf("[Epoc %d]\n", j + 1);
-        printf("Correct: %f%%, Loss Avg: %f\n", sum * 100.0 / test_count, avg_loss);
+        float testRate, stdRate, avgTestLoss, avgStdLoss;
+        testData(A, b, test_x, test_count, test_y, &testRate, &avgTestLoss);
+        testData(A, b, train_x, train_count, train_y, &stdRate, &avgStdLoss);
+        printf("[Epoc %d] ", j + 1);
+        printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f\n", testRate, stdRate, avgTestLoss);
     }
+    t_end = clock();
+    printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
     return 0;
 }

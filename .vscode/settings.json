@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "__split_buffer": "c",
+        "deque": "c",
+        "initializer_list": "c",
+        "iterator": "c",
+        "memory": "c",
+        "queue": "c",
+        "utility": "c",
+        "vector": "c"
+    }
+}
