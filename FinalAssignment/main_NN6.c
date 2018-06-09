@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include "nn.h"
 
 const int debugMode = 0;
@@ -319,7 +320,39 @@ void testData(const float *A1, const float *b1, const float *A2, const float *b2
     *correct = sum * 100.0 / count;
 }
 
-int main() {
+// ファイル読込・書込
+void save(const char *filename, int m, int n, const float *A, const float *b) {
+    FILE *fpp;
+
+    fpp = fopen( filename, "wb" );
+    if( fpp == NULL )
+    {
+        printf("Error: Can't save\n");
+        return;
+    }
+
+    fwrite(A, sizeof(float), m * n, fpp);
+    fwrite(b, sizeof(float), m, fpp);
+
+    fclose(fpp);
+}
+void load(const char *filename, int m, int n, float *A, float *b) {
+    FILE *fpp;
+
+    fpp = fopen( filename, "rb" );
+    if( fpp == NULL )
+    {
+        printf("Error: Can't save\n");
+        return;
+    }
+
+    fread(A, sizeof(float), m * n, fpp);
+    fread(b, sizeof(float), m, fpp);
+
+    fclose(fpp);
+}
+
+int main(int argc, char *argv[]) {
     clock_t t_start, t_end;
     t_start = clock();
     srand(time(NULL));
@@ -336,7 +369,11 @@ int main() {
     int epoc = 30;
     int minipatch_n = 100;
     float study_rate = 0.1;
-    // int studyTimes = train_count / minipatch_n;
+
+    if (argc > 2) {
+        epoc = atoi(argv[1]);
+        epoc = atoi(argv[2]);
+    }
 
     // 4.
     float * A1 = malloc(sizeof(float)*784*50);
@@ -370,6 +407,21 @@ int main() {
         study_rate *= 0.9;
     }
     t_end = clock();
+
+    if (argc > 3) {
+        printf("[Saving...] ");
+
+        char f1[100], f2[100], f3[100];
+        snprintf(f1, 100, "%s%s", argv[3], "_fc1.dat");
+        snprintf(f2, 100, "%s%s", argv[3], "_fc2.dat");
+        snprintf(f3, 100, "%s%s", argv[3], "_fc3.dat");
+
+        save(f1, 50, 784, A1, b1);
+        save(f2, 100, 50, A2, b2);
+        save(f3, 10, 100, A3, b3);
+        printf("Finished.\n");
+    }
+
     printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
     return 0;
 }
