@@ -274,10 +274,9 @@ int main() {
     // を使用することができる.
 
     // 1~3
-    int epoc = 30;
+    int epoc = 10;
     int minipatch_n = 100;
     float study_rate = 0.3;
-    // int studyTimes = train_count / minipatch_n;
 
     // 4.
     float * A = malloc(sizeof(float)*784*10);

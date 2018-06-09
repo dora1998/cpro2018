@@ -3,9 +3,6 @@
 #include <time.h>
 #include "nn.h"
 
-#define M 10
-#define N 784
-
 const int debugMode = 0;
 
 float *train_x = NULL;
@@ -117,14 +114,20 @@ void softmax(int n, const float * x, float * y) {
 }
 
 // 教材よりyを引数に追加して取得できるように
-int inference3(const float * A, const float * b, const float * x, float * y) {
-    if (debugMode == 1) printf(" Inference3\n");
-    fc(M, N, x, A, b, y);
-    relu(M, y, y);
-    softmax(M, y, y);
+int inference6(const float * A1, const float * b1, const float * A2, const float * b2, const float * A3, const float * b3, 
+                const float * x, float * y) {
+    if (debugMode == 1) printf(" Inference6\n");
+    float y1[50];
+    fc(50, 784, x, A1, b1, y1);
+    relu(50, y1, y1);
+    float y2[100];
+    fc(100, 50, y1, A2, b2, y2);
+    relu(100, y2, y2);
+    fc(10, 100, y2, A3, b3, y);
+    softmax(10, y, y);
 
     int ym = 0;
-    for (int j = 0; j < M; j++) {
+    for (int j = 0; j < 10; j++) {
         if (y[j] > y[ym] || j == 0) ym = j;
     }
     return ym;
@@ -167,28 +170,39 @@ void fc_bwd(int m, int n, const float * x, const float * dy, const float * A,
         db[j] = dy[j];
     }
 
-    /*
     for (int j = 0; j < n; j++) {
         dx[j] = 0;
         for (int k = 0; k < m; k++) {
             dx[j] += A[k * n + j] * dy[k];
         }
-    }*/
+    }
 }
 
-void backward3(const float * A, const float * b, const float * x, unsigned char t,
-        float * y, float * dA, float * db) {
-    if (debugMode == 1) printf(" Backward3\n");
+void backward6(const float * A1, const float * b1, const float * A2, const float * b2, const float * A3, const float * b3, 
+        const float * x, unsigned char t, float * y, 
+        float * dA1, float * db1, float * dA2, float * db2, float * dA3, float * db3) {
+    if (debugMode == 1) printf(" Backward6\n");
     
-    float x_relu[M];
-    fc(M, N, x, A, b, y);
-    acopy(M, y, x_relu);
-    relu(M, y, y);
-    softmax(M, y, y);
+    float x_relu1[50], x_fc2[50], x_relu2[100], x_fc3[100];
+    float y1[50], y2[100];
+    fc(50, 784, x, A1, b1, y1);
+    acopy(50, y1, x_relu1);
+    relu(50, y1, y1);
+    acopy(50, y1, x_fc2);
+    fc(100, 50, y1, A2, b2, y2);
+    acopy(100, y2, x_relu2);
+    relu(100, y2, y2);
+    acopy(100, y2, x_fc3);
+    fc(10, 100, y2, A3, b3, y);
+    softmax(10, y, y);
 
-    softmaxwithloss_bwd(M, y, t, y);
-    relu_bwd(M, x_relu, y, y);
-    fc_bwd(M, N, x, y, A, dA, db, y);
+    float y0[784];
+    softmaxwithloss_bwd(10, y, t, y);
+    fc_bwd(10, 100, x_fc3, y, A3, dA3, db3, y2);
+    relu_bwd(100, x_relu2, y2, y2);
+    fc_bwd(100, 50, x_fc2, y2, A2, dA2, db2, y1);
+    relu_bwd(50, x_relu1, y1, y1);
+    fc_bwd(50, 784, x, y1, A1, dA1, db1, y0);
 }
 
 
@@ -204,9 +218,11 @@ float loss(const float * y, int t) {
 }
 
 // 学習関連
-void updateParam(float *A, float *b, float *dA, float *db, const int n, const float srate);
+void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
+                float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
+                const int n, const float srate);
 // 学習メイン関数
-void studyImage(float *A, float *b, int n, float study_rate) {
+void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, int n, float study_rate) {
     int studyTimes = train_count / n;
     if (debugMode == 1) printf("Study train_count=%d, n=%d, study_rate=%f\n", train_count, n, study_rate);
     
@@ -218,25 +234,59 @@ void studyImage(float *A, float *b, int n, float study_rate) {
     shuffle(train_count, index);
 
     // (b)
-    float * a_dA = malloc(sizeof(float)*784*10);
-    float * a_db = malloc(sizeof(float)*10);
+    float * a_dA1 = malloc(sizeof(float)*784*50);
+    float * a_db1 = malloc(sizeof(float)*50);
+    float * a_dA2 = malloc(sizeof(float)*50*100);
+    float * a_db2 = malloc(sizeof(float)*100);
+    float * a_dA3 = malloc(sizeof(float)*10*100);
+    float * a_db3 = malloc(sizeof(float)*10);
     for (int k = 0; k < studyTimes; k++) {
-        init(784 * 10, 0, a_dA);
-        init(10, 0, a_db);
+        init(784 * 50, 0, a_dA1);
+        init(50, 0, a_db1);
+        init(50 * 100, 0, a_dA2);
+        init(100, 0, a_db2);
+        init(10 * 100, 0, a_dA3);
+        init(10, 0, a_db3);
 
         for (int l = 0; l < n; l++) {
             float * y = malloc(sizeof(float)*10);
-            float * dA = malloc(sizeof(float)*784*10);
-            float * db = malloc(sizeof(float)*10);
-            backward3(A, b, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA, db);
-            add(M * N, dA, a_dA);
-            add(M, db, a_db);               
+            float * dA1 = malloc(sizeof(float)*784*50);
+            float * db1 = malloc(sizeof(float)*50);
+            float * dA2 = malloc(sizeof(float)*50*100);
+            float * db2 = malloc(sizeof(float)*100);
+            float * dA3 = malloc(sizeof(float)*10*100);
+            float * db3 = malloc(sizeof(float)*10);
+
+            backward6(A1, b1, A2, b2, A3, b3, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA1, db1, dA2, db2, dA3, db3);
+            add(50 * 784, dA1, a_dA1);
+            add(50, db1, a_db1);
+            add(100 * 50, dA2, a_dA2);
+            add(100, db2, a_db2);
+            add(10 * 100, dA3, a_dA3);
+            add(10, db3, a_db3);
+
+            free(y);
+            free(dA1);
+            free(db1);
+            free(dA2);
+            free(db2);
+            free(dA3);
+            free(db3);
         }
-        updateParam(A, b, a_dA, a_db, n, study_rate);
+        updateParam(A1, b1, A2, b2, A3, b3, 
+            a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
+            n, study_rate);
     }
+
+    free(a_dA1);
+    free(a_db1);
+    free(a_dA2);
+    free(a_db2);
+    free(a_dA3);
+    free(a_db3);
 }
 // A, bをdA, dbにもとづいてアップデート
-void updateParam(float *A, float *b, float *dA, float *db, const int n, const float srate) {
+void recalc(const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
     divide(M * N, n, dA);
     divide(M, n, db);
     scale(M * N, - srate, dA);
@@ -244,18 +294,27 @@ void updateParam(float *A, float *b, float *dA, float *db, const int n, const fl
     add(M * N, dA, A);
     add(M, db, b);
 }
+void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
+                float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
+                const int n, const float srate) {
+    recalc(50, 784, n, srate, A1, b1, dA1, db1);
+    recalc(100, 50, n, srate, A2, b2, dA2, db2);
+    recalc(10, 50, n, srate, A3, b3, dA3, db3);
+}
 
 // テスト
-void testData(const float *A, const float *b, float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
+void testData(const float *A1, const float *b1, const float *A2, const float *b2, const float *A3, const float *b3, 
+                float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
     int sum = 0;
     *l = 0;
     for(int k = 0; k < count; k++) {
         float y[10];
-        if(inference3(A, b, start_x + k*width*height, y) == res_y[k]) {
+        if(inference6(A1, b1, A2, b2, A3, b3, start_x + k*width*height, y) == res_y[k]) {
             sum++;
         }
         *l += loss(y, res_y[k]);
     }
+    
     *l /= 1.0 * count;
     *correct = sum * 100.0 / count;
 }
@@ -276,25 +335,39 @@ int main() {
     // 1~3
     int epoc = 30;
     int minipatch_n = 100;
-    float study_rate = 0.3;
+    float study_rate = 0.1;
     // int studyTimes = train_count / minipatch_n;
 
     // 4.
-    float * A = malloc(sizeof(float)*784*10);
-    float * b = malloc(sizeof(float)*10);
-    rand_init(M * N, A);
-    rand_init(M, b);
+    float * A1 = malloc(sizeof(float)*784*50);
+    float * b1 = malloc(sizeof(float)*50);
+    float * A2 = malloc(sizeof(float)*50*100);
+    float * b2 = malloc(sizeof(float)*100);
+    float * A3 = malloc(sizeof(float)*10*100);
+    float * b3 = malloc(sizeof(float)*10);
+
+    rand_init(784 * 50, A1);
+    rand_init(50, b1);
+    rand_init(50 * 100, A2);
+    rand_init(100, b2);
+    rand_init(10 * 100, A3);
+    rand_init(10, b3);
 
     for (int j = 0; j < epoc; j++) {
+        printf("[Epoc %d] ", j + 1);
+
         // (a)(b)
-        studyImage(A, b, minipatch_n, study_rate);
+        studyImage(A1, b1, A2, b2, A3, b3, minipatch_n, study_rate);
 
         // (c) cf)補題7
+        if (debugMode >= 1) printf("Test Start\n");
         float testRate, stdRate, avgTestLoss, avgStdLoss;
-        testData(A, b, test_x, test_count, test_y, &testRate, &avgTestLoss);
-        testData(A, b, train_x, train_count, train_y, &stdRate, &avgStdLoss);
-        printf("[Epoc %d] ", j + 1);
+        testData(A1, b1, A2, b2, A3, b3, test_x, test_count, test_y, &testRate, &avgTestLoss);
+        testData(A1, b1, A2, b2, A3, b3, train_x, train_count, train_y, &stdRate, &avgStdLoss);
+        if (debugMode >= 1) printf("Test Finished\n");
+
         printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f\n", testRate, stdRate, avgTestLoss);
+        study_rate *= 0.9;
     }
     t_end = clock();
     printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
