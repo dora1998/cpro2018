@@ -56,7 +56,7 @@ int irand(const int max, const int base) {
     return (int)(rand() / (1.0 + RAND_MAX) * (max - base) + base);
 }
 float frand(const float max, const float base) {
-    return rand() / (1.0 + RAND_MAX) * (max - base) + base;
+    return rand() / RAND_MAX * (max - base) + base;
 }
 // 配列の除算
 void divide(int n, float x, float * o) {

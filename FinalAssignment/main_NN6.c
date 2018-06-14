@@ -54,7 +54,7 @@ int irand(const int max, const int base) {
     return (int)(rand() / (1.0 + RAND_MAX) * (max - base) + base);
 }
 float frand(const float max, const float base) {
-    return rand() / (1.0 + RAND_MAX) * (max - base) + base;
+    return rand() * 1.0 / RAND_MAX * (max - base) + base;
 }
 // 配列の除算
 void divide(int n, float x, float * o) {
@@ -372,7 +372,7 @@ int main(int argc, char *argv[]) {
 
     if (argc > 2) {
         epoc = atoi(argv[1]);
-        epoc = atoi(argv[2]);
+        study_rate = atof(argv[2]);
     }
 
     // 4.
@@ -404,7 +404,7 @@ int main(int argc, char *argv[]) {
         if (debugMode >= 1) printf("Test Finished\n");
 
         printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f\n", testRate, stdRate, avgTestLoss);
-        study_rate *= 0.9;
+        // study_rate *= 0.9;
     }
     t_end = clock();
 

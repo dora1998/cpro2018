@@ -13,7 +13,7 @@ void print(float *data, int n) {
 // kadai6-6.c
 void rand_init(int n, float *o) {
     for (int j = 0; j < n; j++) {
-        o[j] = rand() / (1.0 + RAND_MAX) * 2.0 - 1.0;
+        o[j] = rand() * 1.0 / RAND_MAX * 2.0 - 1.0;
     }
 }
 

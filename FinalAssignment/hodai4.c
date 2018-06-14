@@ -43,7 +43,7 @@ float amax(int n, const float *x) {
     for (int j = 0; j < n; j++) {
         if (j == 0 || x[j] > res) res = x[j];
     }
-    return res;
+    rcd eturn res;
 }
 void softmax(int n, const float * x, float * y) {
     float xm = amax(n, x);
