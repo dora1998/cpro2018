@@ -3,6 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include "nn.h"
+#include "nn_stdlib.h"
 
 const int debugMode = 0;
 
@@ -14,105 +15,6 @@ unsigned char *test_y = NULL;
 int test_count = -1;
 int width = -1;
 int height = -1;
-
-void print(int m, int n, const float *x) {
-    for (int j = 0; j < m; j++) {
-        for (int k = 0; k < n; k++) {
-            printf("%.4f", x[j * n + k]);
-            if (k != (n - 1)) printf(" ");
-        }
-        printf("\n");
-    }
-}
-
-// 独自補助関数
-/*
-配列の最大値を求める関数
-    int n: 要素数
-    float *x: 対象配列
-    return(float): 最大値
-*/
-float amax(int n, const float *x) {
-    float res;
-    for (int j = 0; j < n; j++) {
-        if (j == 0 || x[j] > res) res = x[j];
-    }
-    return res;
-}
-// 配列のコピー
-void acopy(const int n, const float *src, float *dist) {
-    memcpy(dist, src, sizeof(float)*n);
-}
-// 値の入れ替え
-void swap(int *j, int *k) {
-    int t = *k;
-    *k = *j;
-    *j = t;
-}
-// 乱数取得
-int irand(const int max, const int base) {
-    return (int)(rand() / (1.0 + RAND_MAX) * (max - base) + base);
-}
-float frand(const float max, const float base) {
-    return rand() * 1.0 / RAND_MAX * (max - base) + base;
-}
-// 配列の除算
-void divide(int n, float x, float * o) {
-    for (int j = 0; j < n; j++) {
-        o[j] /= x;
-    }
-}
-
-// 補助関数
-void add(int n, const float * x, float * o) {
-    for (int j = 0; j < n; j++) {
-        o[j] += x[j];
-    }
-}
-void scale(int n, float x, float * o) {
-    for (int j = 0; j < n; j++) {
-        o[j] *= x;
-    }
-}
-void init(int n, float x, float * o) {
-    for (int j = 0; j < n; j++) {
-        o[j] = x;
-    }
-}
-void rand_init(int n, float * o) {
-    for (int j = 0; j < n; j++) {
-        o[j] = frand(1, -1);
-    }
-}
-
-void fc(int m, int n, const float * x, const float * A, const float * b, float * y) {
-    if (debugMode == 1) printf("  FC      input(%d x %d), output(%d x 1)\n", m, n, m);
-    for (int j = 0; j < m; j++) {
-        y[j] = b[j];
-        for (int k = 0; k < n; k++) {
-            y[j] += A[j * n + k] * x[k];
-        }
-    }
-}
-void relu(int n, const float * x, float * y) {
-    if (debugMode == 1) printf("  ReLU    input(%d x 1), output(%d x 1)\n", n, n);
-    for (int j = 0; j < n; j++) {
-        y[j] = x[j] > 0 ? x[j] : 0;
-    }
-}
-
-void softmax(int n, const float * x, float * y) {
-    if (debugMode == 1) printf("  Softmax input(%d x 1), output(%d x 1)\n", n, n);
-    float xm = amax(n, x);
-    float xsum = 0;
-    for (int j = 0; j < n; j++) {
-        y[j] = exp(x[j] - xm);
-        xsum += y[j];
-    }
-    for (int j = 0; j < n; j++) {
-        y[j] /= xsum;
-    }
-}
 
 // 教材よりyを引数に追加して取得できるように
 int inference6(const float * A1, const float * b1, const float * A2, const float * b2, const float * A3, const float * b3, 
@@ -132,51 +34,6 @@ int inference6(const float * A1, const float * b1, const float * A2, const float
         if (y[j] > y[ym] || j == 0) ym = j;
     }
     return ym;
-}
-
-/*
-誤差逆伝搬(Softmax 層)
-    n: 10(m)
-    *y, *dx: n個の配列
-    t: 0-9の整数
-*/
-void softmaxwithloss_bwd(int n, const float * y, unsigned char t, float * dx) {
-    for (int j = 0; j < n; j++) {
-        int t_j = t == j ? 1 : 0;
-        dx[j] = y[j] - t_j;
-    }
-}
-/*
-誤差逆伝搬(ReLU 層)
-*/
-void relu_bwd(int n, const float * x, const float * dy, float * dx) {
-    for (int j = 0; j < n; j++) {
-        dx[j] = x[j] > 0 ? dy[j] : 0;
-    }
-}
-/* 
-誤差逆伝搬(FC 層)
-    m, n: 行列サイズ
-    *x, *dx: n列の行列？
-    *dy: m行の行列
-    *A, *dA: m x n 行列
-    *db: m行の行列
-*/
-void fc_bwd(int m, int n, const float * x, const float * dEdy, const float * A,
-        float * dEdA, float * dEdb, float * dEdx) {
-    for (int j = 0; j < m; j++) {
-        for (int k = 0; k < n; k++) {
-            dEdA[j * n + k] = dEdy[j] * x[k];
-        }
-        dEdb[j] = dEdy[j];
-    }
-
-    for (int j = 0; j < n; j++) {
-        dEdx[j] = 0;
-        for (int k = 0; k < m; k++) {
-            dEdx[j] += A[k * n + j] * dEdy[k];
-        }
-    }
 }
 
 void backward6(const float * A1, const float * b1, const float * A2, const float * b2, const float * A3, const float * b3, 
@@ -204,18 +61,6 @@ void backward6(const float * A1, const float * b1, const float * A2, const float
     fc_bwd(100, 50, x_fc2, y2, A2, dA2, db2, y1);
     relu_bwd(50, x_relu1, y1, y1);
     fc_bwd(50, 784, x, y1, A1, dA1, db1, y0);
-}
-
-
-void shuffle(int n, int *x) {
-    for (int j = 0; j < n; j++) {
-        int k = irand(n, 0);
-        swap(&x[j], &x[k]);
-    }
-}
-
-float cross_entropy_error(const float * y, int t) {
-    return - log(y[t] + 1e-7);
 }
 
 // 学習関連
@@ -318,38 +163,6 @@ void testData(const float *A1, const float *b1, const float *A2, const float *b2
     
     *l /= 1.0 * count;
     *correct = sum * 100.0 / count;
-}
-
-// ファイル読込・書込
-void save(const char *filename, int m, int n, const float *A, const float *b) {
-    FILE *fpp;
-
-    fpp = fopen( filename, "wb" );
-    if( fpp == NULL )
-    {
-        printf("Error: Can't save\n");
-        return;
-    }
-
-    fwrite(A, sizeof(float), m * n, fpp);
-    fwrite(b, sizeof(float), m, fpp);
-
-    fclose(fpp);
-}
-void load(const char *filename, int m, int n, float *A, float *b) {
-    FILE *fpp;
-
-    fpp = fopen( filename, "rb" );
-    if( fpp == NULL )
-    {
-        printf("Error: Can't save\n");
-        return;
-    }
-
-    fread(A, sizeof(float), m * n, fpp);
-    fread(b, sizeof(float), m, fpp);
-
-    fclose(fpp);
 }
 
 void main_study(int epoc, float study_rate, char *file_prefix) {

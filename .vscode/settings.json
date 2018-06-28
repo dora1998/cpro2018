@@ -7,6 +7,10 @@
         "memory": "c",
         "queue": "c",
         "utility": "c",
-        "vector": "c"
+        "vector": "c",
+        "__bit_reference": "c",
+        "bitset": "c",
+        "chrono": "c",
+        "nn_calclib.h": "c"
     }
 }
