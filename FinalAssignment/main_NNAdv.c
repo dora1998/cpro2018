@@ -181,12 +181,12 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
     float * A3 = malloc(sizeof(float)*10*100);
     float * b3 = malloc(sizeof(float)*10);
 
-    rand_init(784 * 50, A1);
-    rand_init(50, b1);
-    rand_init(50 * 100, A2);
-    rand_init(100, b2);
-    rand_init(10 * 100, A3);
-    rand_init(10, b3);
+    rand_init_bm(784 * 50, A1, 784);
+    rand_init_bm(50, b1, 784);
+    rand_init_bm(50 * 100, A2, 50);
+    rand_init_bm(100, b2, 50);
+    rand_init_bm(10 * 100, A3, 100);
+    rand_init_bm(10, b3, 100);
 
     for (int j = 0; j < epoc; j++) {
         printf("[Epoc %d] ", j + 1);
@@ -250,10 +250,6 @@ int main(int argc, char *argv[]) {
     load_mnist(&train_x, &train_y, &train_count,
                 &test_x, &test_y, &test_count,
                 &width, &height);
-
-    // これ以降，3層 NN の係数 A_784x10 および b_784x10 と，
-    // 訓練データ train_x + 784*i (i=0,...,train_count-1), train_y[0]~train_y[train_count-1], // テストデータ test_x + 784*i (i=0,...,test_count-1), test_y[0]~test_y[test_count-1],
-    // を使用することができる.
 
     char *mode = argv[1];
     if (strcmp(mode, "study") == 0) {

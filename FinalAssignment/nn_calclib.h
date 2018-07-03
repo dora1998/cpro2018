@@ -43,6 +43,11 @@ int irand(const int max, const int base) {
 float frand(const float max, const float base) {
     return rand() * 1.0 / RAND_MAX * (max - base) + base;
 }
+float frand_BoxMuller(const float avg, const float sd) {
+    float u1 = rand() / (1.0 + RAND_MAX);
+    float u2 = rand() / (1.0 + RAND_MAX);
+    return avg + sd * pow(-2.0 * log(u1), 0.5) * cos(2.0 * M_PI * u2);
+}
 // 配列の除算
 void divide(int n, float x, float * o) {
     for (int j = 0; j < n; j++) {
@@ -69,6 +74,11 @@ void init(int n, float x, float * o) {
 void rand_init(int n, float * o) {
     for (int j = 0; j < n; j++) {
         o[j] = frand(1, -1);
+    }
+}
+void rand_init_bm(int n, float * o, const float input_size) {
+    for (int j = 0; j < n; j++) {
+        o[j] = frand_BoxMuller(0, pow(2.0 / input_size, 0.5));
     }
 }
 
