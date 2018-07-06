@@ -39,10 +39,6 @@ float amax(int n, const float *x) {
     }
     return res;
 }
-// 配列のコピー
-void acopy(const int n, const float *src, float *dist) {
-    memcpy(dist, src, sizeof(float)*n);
-}
 // 値の入れ替え
 void swap(int *j, int *k) {
     int t = *k;
@@ -185,19 +181,14 @@ void backward6(const float * A1, const float * b1, const float * A2, const float
     if (debugMode == 1) printf(" Backward6\n");
     
     float x_relu1[50], x_fc2[50], x_relu2[100], x_fc3[100];
-    float y1[50], y2[100];
-    fc(50, 784, x, A1, b1, y1);
-    acopy(50, y1, x_relu1);
-    relu(50, y1, y1);
-    acopy(50, y1, x_fc2);
-    fc(100, 50, y1, A2, b2, y2);
-    acopy(100, y2, x_relu2);
-    relu(100, y2, y2);
-    acopy(100, y2, x_fc3);
-    fc(10, 100, y2, A3, b3, y);
+    fc(50, 784, x, A1, b1, x_relu1);
+    relu(50, x_relu1, x_fc2);
+    fc(100, 50, x_fc2, A2, b2, x_relu2);
+    relu(100, x_relu2, x_fc3);
+    fc(10, 100, x_fc3, A3, b3, y);
     softmax(10, y, y);
 
-    float y0[784];
+    float y0[784], y1[50], y2[100];
     softmaxwithloss_bwd(10, y, t, y);
     fc_bwd(10, 100, x_fc3, y, A3, dA3, db3, y2);
     relu_bwd(100, x_relu2, y2, y2);
@@ -241,6 +232,15 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
     float * a_db2 = malloc(sizeof(float)*100);
     float * a_dA3 = malloc(sizeof(float)*10*100);
     float * a_db3 = malloc(sizeof(float)*10);
+
+
+    float * y = malloc(sizeof(float)*10);
+    float * dA1 = malloc(sizeof(float)*784*50);
+    float * db1 = malloc(sizeof(float)*50);
+    float * dA2 = malloc(sizeof(float)*50*100);
+    float * db2 = malloc(sizeof(float)*100);
+    float * dA3 = malloc(sizeof(float)*10*100);
+    float * db3 = malloc(sizeof(float)*10);
     for (int k = 0; k < studyTimes; k++) {
         init(784 * 50, 0, a_dA1);
         init(50, 0, a_db1);
@@ -250,14 +250,6 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
         init(10, 0, a_db3);
 
         for (int l = 0; l < n; l++) {
-            float * y = malloc(sizeof(float)*10);
-            float * dA1 = malloc(sizeof(float)*784*50);
-            float * db1 = malloc(sizeof(float)*50);
-            float * dA2 = malloc(sizeof(float)*50*100);
-            float * db2 = malloc(sizeof(float)*100);
-            float * dA3 = malloc(sizeof(float)*10*100);
-            float * db3 = malloc(sizeof(float)*10);
-
             backward6(A1, b1, A2, b2, A3, b3, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA1, db1, dA2, db2, dA3, db3);
             add(50 * 784, dA1, a_dA1);
             add(50, db1, a_db1);
@@ -265,26 +257,15 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
             add(100, db2, a_db2);
             add(10 * 100, dA3, a_dA3);
             add(10, db3, a_db3);
-
-            free(y);
-            free(dA1);
-            free(db1);
-            free(dA2);
-            free(db2);
-            free(dA3);
-            free(db3);
         }
         updateParam(A1, b1, A2, b2, A3, b3, 
             a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
             n, study_rate);
     }
 
-    free(a_dA1);
-    free(a_db1);
-    free(a_dA2);
-    free(a_db2);
-    free(a_dA3);
-    free(a_db3);
+    free(a_dA1); free(a_db1);
+    free(a_dA2); free(a_db2);
+    free(a_dA3); free(a_db3);
 }
 // A, bをdA, dbにもとづいてアップデート
 void recalc(const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
@@ -432,6 +413,10 @@ void main_inference(char *prefix, float *x) {
 }
 
 int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Input Error!!\nSample: ./main_NN6 study [epoc] [study_rate] [file_prefix]\nSample: ./main_NN6 inf [studydata_prefix] [x]\n");
+        return 0;
+    }
     srand(time(NULL));
 
     load_mnist(&train_x, &train_y, &train_count,
