@@ -8358,7 +8358,7 @@ typedef struct tagBITMAPFILEHEADER {
   WORD  bfReserved1;
   WORD  bfReserved2;
   DWORD bfOffBits;
-} __attribute__ ((packed)) BITMAPFILEHEADER, *PBITMAPFILEHEADER;
+} __attribute__ ((gcc_struct, packed)) BITMAPFILEHEADER, *PBITMAPFILEHEADER;
 
 // https://msdn.microsoft.com/en-us/library/dd183376(VS.85).aspx
 typedef struct tagBITMAPINFOHEADER {
