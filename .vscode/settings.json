@@ -11,6 +11,9 @@
         "__bit_reference": "c",
         "bitset": "c",
         "chrono": "c",
-        "nn_calclib.h": "c"
+        "nn_calclib.h": "c",
+        "limits": "c",
+        "ratio": "c",
+        "algorithm": "c"
     }
 }

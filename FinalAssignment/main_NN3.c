@@ -56,7 +56,7 @@ int irand(const int max, const int base) {
     return (int)(rand() / (1.0 + RAND_MAX) * (max - base) + base);
 }
 float frand(const float max, const float base) {
-    return rand() / RAND_MAX * (max - base) + base;
+    return rand() * 1.0 / RAND_MAX * (max - base) + base;
 }
 // 配列の除算
 void divide(int n, float x, float * o) {
@@ -167,13 +167,12 @@ void fc_bwd(int m, int n, const float * x, const float * dy, const float * A,
         db[j] = dy[j];
     }
 
-    /*
     for (int j = 0; j < n; j++) {
         dx[j] = 0;
         for (int k = 0; k < m; k++) {
             dx[j] += A[k * n + j] * dy[k];
         }
-    }*/
+    }
 }
 
 void backward3(const float * A, const float * b, const float * x, unsigned char t,
@@ -186,9 +185,10 @@ void backward3(const float * A, const float * b, const float * x, unsigned char 
     relu(M, y, y);
     softmax(M, y, y);
 
+    float dx[N];
     softmaxwithloss_bwd(M, y, t, y);
     relu_bwd(M, x_relu, y, y);
-    fc_bwd(M, N, x, y, A, dA, db, y);
+    fc_bwd(M, N, x, y, A, dA, db, dx);
 }
 
 
@@ -230,7 +230,8 @@ void studyImage(float *A, float *b, int n, float study_rate) {
             float * db = malloc(sizeof(float)*10);
             backward3(A, b, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA, db);
             add(M * N, dA, a_dA);
-            add(M, db, a_db);               
+            add(M, db, a_db);
+            free(y); free(dA); free(db);
         }
         updateParam(A, b, a_dA, a_db, n, study_rate);
     }
