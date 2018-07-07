@@ -42,19 +42,14 @@ void backward6(const float * A1, const float * b1, const float * A2, const float
     if (debugMode == 1) printf(" Backward6\n");
     
     float x_relu1[50], x_fc2[50], x_relu2[100], x_fc3[100];
-    float y1[50], y2[100];
-    fc(50, 784, x, A1, b1, y1);
-    acopy(50, y1, x_relu1);
-    relu(50, y1, y1);
-    acopy(50, y1, x_fc2);
-    fc(100, 50, y1, A2, b2, y2);
-    acopy(100, y2, x_relu2);
-    relu(100, y2, y2);
-    acopy(100, y2, x_fc3);
-    fc(10, 100, y2, A3, b3, y);
+    fc(50, 784, x, A1, b1, x_relu1);
+    relu(50, x_relu1, x_fc2);
+    fc(100, 50, x_fc2, A2, b2, x_relu2);
+    relu(100, x_relu2, x_fc3);
+    fc(10, 100, x_fc3, A3, b3, y);
     softmax(10, y, y);
 
-    float y0[784];
+    float y0[784], y1[50], y2[100];
     softmaxwithloss_bwd(10, y, t, y);
     fc_bwd(10, 100, x_fc3, y, A3, dA3, db3, y2);
     relu_bwd(100, x_relu2, y2, y2);
@@ -67,7 +62,11 @@ void backward6(const float * A1, const float * b1, const float * A2, const float
 void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
                 float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
                 const int n, const float srate);
-// 学習メイン関数
+/* 学習メイン関数
+    A1~A3, b1~b3: 学習対象行列
+    n: ミニパッチ数
+    study_rate: 学習率
+*/
 void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, int n, float study_rate) {
     int studyTimes = train_count / n;
     if (debugMode == 1) printf("Study train_count=%d, n=%d, study_rate=%f\n", train_count, n, study_rate);
@@ -86,6 +85,15 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
     float * a_db2 = malloc(sizeof(float)*100);
     float * a_dA3 = malloc(sizeof(float)*10*100);
     float * a_db3 = malloc(sizeof(float)*10);
+
+
+    float * y = malloc(sizeof(float)*10);
+    float * dA1 = malloc(sizeof(float)*784*50);
+    float * db1 = malloc(sizeof(float)*50);
+    float * dA2 = malloc(sizeof(float)*50*100);
+    float * db2 = malloc(sizeof(float)*100);
+    float * dA3 = malloc(sizeof(float)*10*100);
+    float * db3 = malloc(sizeof(float)*10);
     for (int k = 0; k < studyTimes; k++) {
         init(784 * 50, 0, a_dA1);
         init(50, 0, a_db1);
@@ -95,14 +103,6 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
         init(10, 0, a_db3);
 
         for (int l = 0; l < n; l++) {
-            float * y = malloc(sizeof(float)*10);
-            float * dA1 = malloc(sizeof(float)*784*50);
-            float * db1 = malloc(sizeof(float)*50);
-            float * dA2 = malloc(sizeof(float)*50*100);
-            float * db2 = malloc(sizeof(float)*100);
-            float * dA3 = malloc(sizeof(float)*10*100);
-            float * db3 = malloc(sizeof(float)*10);
-
             backward6(A1, b1, A2, b2, A3, b3, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA1, db1, dA2, db2, dA3, db3);
             add(50 * 784, dA1, a_dA1);
             add(50, db1, a_db1);
@@ -110,14 +110,6 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
             add(100, db2, a_db2);
             add(10 * 100, dA3, a_dA3);
             add(10, db3, a_db3);
-
-            free(y);
-            free(dA1);
-            free(db1);
-            free(dA2);
-            free(db2);
-            free(dA3);
-            free(db3);
         }
         updateParam(A1, b1, A2, b2, A3, b3, 
             a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
@@ -131,7 +123,13 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
     free(a_dA3);
     free(a_db3);
 }
-// A, bをdA, dbにもとづいてアップデート
+/* A, bをdA, dbにもとづいてアップデートする関数
+    M, N: Aの行列サイズ
+    n: ミニパッチ数
+    srate: 学習率
+    A, b: 更新先配列
+    dA, db: 更新元データ配列
+*/
 void recalc(const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
     divide(M * N, n, dA);
     divide(M, n, db);
@@ -140,6 +138,12 @@ void recalc(const int M, const int N, const int n, const float srate, float *A, 
     add(M * N, dA, A);
     add(M, db, b);
 }
+/* A1~A3, b1~b3をまとめてアップデートする関数
+    n: ミニパッチ数
+    srate: 学習率
+    A1~A3, b1~b3: 更新先配列
+    dA1~dA3, db1~db3: 更新元データ配列
+*/
 void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
                 float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
                 const int n, const float srate) {
@@ -148,7 +152,14 @@ void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b
     recalc(10, 50, n, srate, A3, b3, dA3, db3);
 }
 
-// テスト
+/* テスト関数
+    A1~A3, b1~b3: テストに使用する行列
+    start_x: テストデータの開始位置ポインタ
+    count: テストデータ数
+    res_y: テストデータの正解データ配列
+    correct: 正解率返却用ポインタ
+    l: ロス平均返却用ポインタ
+*/
 void testData(const float *A1, const float *b1, const float *A2, const float *b2, const float *A3, const float *b3, 
                 float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
     int sum = 0;
@@ -165,6 +176,11 @@ void testData(const float *A1, const float *b1, const float *A2, const float *b2
     *correct = sum * 100.0 / count;
 }
 
+/* 学習モードのメイン関数
+    epoc: エポック回数
+    study_rate: 学習率
+    file_prefix: 保存先ファイルプレフィックス
+*/
 void main_study(int epoc, float study_rate, char *file_prefix) {
     printf("--- Study Mode ---\n");
     clock_t t_start, t_end;
@@ -202,7 +218,6 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
         if (debugMode >= 1) printf("Test Finished\n");
 
         printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f(StudyData: %f)\n", testRate, stdRate, avgTestLoss, avgStdLoss);
-        // study_rate *= 0.9;
     }
     t_end = clock();
 
@@ -221,6 +236,10 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
     printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
 }
 
+/* 推論モードメイン関数
+    prefix: 読込ファイルプレフィックス
+    x: 推論対象ファイル
+*/
 void main_inference(char *prefix, float *x) {
     printf("--- Inference Mode ---\n");
     float * A1 = malloc(sizeof(float)*784*50);

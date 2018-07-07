@@ -130,34 +130,20 @@ int inference6(const float * A1, const float * b1, const float * A2, const float
     return ym;
 }
 
-/*
-誤差逆伝搬(Softmax 層)
-    n: 10(m)
-    *y, *dx: n個の配列
-    t: 0-9の整数
-*/
+// 誤差逆伝搬(Softmax 層)
 void softmaxwithloss_bwd(int n, const float * y, unsigned char t, float * dx) {
     for (int j = 0; j < n; j++) {
         int t_j = t == j ? 1 : 0;
         dx[j] = y[j] - t_j;
     }
 }
-/*
-誤差逆伝搬(ReLU 層)
-*/
+// 誤差逆伝搬(ReLU 層)
 void relu_bwd(int n, const float * x, const float * dy, float * dx) {
     for (int j = 0; j < n; j++) {
         dx[j] = x[j] > 0 ? dy[j] : 0;
     }
 }
-/* 
-誤差逆伝搬(FC 層)
-    m, n: 行列サイズ
-    *x, *dx: n列の行列？
-    *dy: m行の行列
-    *A, *dA: m x n 行列
-    *db: m行の行列
-*/
+// 誤差逆伝搬(FC 層)
 void fc_bwd(int m, int n, const float * x, const float * dEdy, const float * A,
         float * dEdA, float * dEdb, float * dEdx) {
     for (int j = 0; j < m; j++) {
