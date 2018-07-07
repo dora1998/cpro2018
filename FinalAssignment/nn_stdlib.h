@@ -5,6 +5,8 @@
 #include "nn.h"
 #include "nn_calclib.h"
 
+#define LOG_BUFFER_SIZE 10000   //ログのバッファサイズ
+
 void fc(int m, int n, const float * x, const float * A, const float * b, float * y) {
     for (int j = 0; j < m; j++) {
         y[j] = b[j];
@@ -59,4 +61,68 @@ void fc_bwd(int m, int n, const float * x, const float * dEdy, const float * A,
             dEdx[j] += A[k * n + j] * dEdy[k];
         }
     }
+}
+
+// ファイル読込・書込
+void save(const char *filename, int m, int n, const float *A, const float *b) {
+    FILE *fpp;
+
+    fpp = fopen( filename, "wb" );
+    if( fpp == NULL )
+    {
+        printf("Error: Can't save\n");
+        return;
+    }
+
+    fwrite(A, sizeof(float), m * n, fpp);
+    fwrite(b, sizeof(float), m, fpp);
+
+    fclose(fpp);
+}
+void load(const char *filename, int m, int n, float *A, float *b) {
+    FILE *fpp;
+
+    fpp = fopen( filename, "rb" );
+    if( fpp == NULL )
+    {
+        printf("Error: Can't save\n");
+        return;
+    }
+
+    fread(A, sizeof(float), m * n, fpp);
+    fread(b, sizeof(float), m, fpp);
+
+    fclose(fpp);
+}
+
+// ログ記録バッファ
+char logbuf[LOG_BUFFER_SIZE];
+char logfname[100];
+// ログファイルへのバッファ書込
+void writeLogToFile() {
+    FILE *fpp;
+
+    fpp = fopen(logfname, "a");
+    if( fpp == NULL )
+    {
+        printf("Error: Can't save logfile\n");
+        return;
+    }
+    
+    fputs(logbuf, fpp);
+    fclose(fpp);
+}
+// ログ追加関数(mes: ログメッセージ)
+void writeLog(const char *mes) {
+    if ((strlen(logbuf) + strlen(mes) + 1) >= LOG_BUFFER_SIZE) writeLogToFile();
+    strcat(logbuf, mes);
+    strcat(logbuf, "\n");
+}
+// ログ日時情報記録関数
+void initLog(const char *fileprefix) {
+    snprintf(logfname, sizeof(logfname), "%s%s", fileprefix, ".log");
+
+    char date_str[256];
+    time_t timer = time(NULL);
+    strftime(date_str, sizeof(date_str), "%x %H:%M:%S", localtime(&timer));
 }

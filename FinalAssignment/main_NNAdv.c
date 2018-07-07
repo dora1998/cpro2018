@@ -123,14 +123,17 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
     free(a_dA3);
     free(a_db3);
 }
+
 /* A, bをdA, dbにもとづいてアップデートする関数
+    num: 何段階目か(0~)
     M, N: Aの行列サイズ
     n: ミニパッチ数
     srate: 学習率
     A, b: 更新先配列
     dA, db: 更新元データ配列
 */
-void recalc(const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
+// SGD
+void recalc_SGD(const int num, const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
     divide(M * N, n, dA);
     divide(M, n, db);
     scale(M * N, - srate, dA);
@@ -138,6 +141,67 @@ void recalc(const int M, const int N, const int n, const float srate, float *A, 
     add(M * N, dA, A);
     add(M, db, b);
 }
+// Momentum
+float *vA[] = {NULL, NULL, NULL};
+float *vb[] = {NULL, NULL, NULL};
+const float alpha = 0.9;
+void recalc_Momentum(const int num, const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
+    if (vA[num] == NULL) {
+        vA[num] = malloc(sizeof(float) * M * N);
+        vb[num] = malloc(sizeof(float) * M);
+        init(M * N, 0, vA[num]);
+        init(M, 0, vb[num]);
+    } else {
+        scale(M * N, alpha, vA[num]);
+        scale(M, alpha, vb[num]);
+    }
+
+    divide(M * N, n, dA);
+    divide(M, n, db);
+    scale(M * N, - srate, dA);
+    scale(M, - srate, db);
+    add(M * N, dA, vA[num]);
+    add(M, db, vb[num]);
+
+    add(M * N, vA[num], A);
+    add(M, vb[num], b);
+}
+// AdaGrad
+float *hA[] = {NULL, NULL, NULL};
+float *hb[] = {NULL, NULL, NULL};
+void recalc_AdaGrad(const int num, const int M, const int N, const int n, const float srate, float *A, float *b, float *dA, float *db) {
+    if (hA[num] == NULL) {
+        hA[num] = malloc(sizeof(float) * M * N);
+        hb[num] = malloc(sizeof(float) * M);
+        init(M * N, 0, hA[num]);
+        init(M, 0, hb[num]);
+    }
+
+    divide(M * N, n, dA);
+    divide(M, n, db);
+
+    float *tmp_dA = malloc(sizeof(float) * M * N);
+    float *tmp_db = malloc(sizeof(float) * M);
+    acopy(M * N, dA, tmp_dA);
+    acopy(M, db, tmp_db);
+    matpow(M * N, tmp_dA);
+    matpow(M, tmp_db);
+    add(M * N, tmp_dA, hA[num]);
+    add(M, tmp_db, hb[num]);
+
+    for (int j = 0; j < M; j++) {
+        for (int k = 0; k < N; k++) {
+            dA[j * N + k] *= - srate / (sqrt(hA[num][j * N + k]) + 1e-7);
+        }
+        db[j] *= - srate / (sqrt(hb[num][j]) + 1e-7);
+    }
+    
+    add(M * N, dA, A);
+    add(M, db, b);
+
+    free(tmp_dA); free(tmp_db);
+}
+
 /* A1~A3, b1~b3をまとめてアップデートする関数
     n: ミニパッチ数
     srate: 学習率
@@ -147,9 +211,9 @@ void recalc(const int M, const int N, const int n, const float srate, float *A, 
 void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
                 float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
                 const int n, const float srate) {
-    recalc(50, 784, n, srate, A1, b1, dA1, db1);
-    recalc(100, 50, n, srate, A2, b2, dA2, db2);
-    recalc(10, 50, n, srate, A3, b3, dA3, db3);
+    recalc_AdaGrad(0, 50, 784, n, srate, A1, b1, dA1, db1);
+    recalc_AdaGrad(1, 100, 50, n, srate, A2, b2, dA2, db2);
+    recalc_AdaGrad(2, 10, 50, n, srate, A3, b3, dA3, db3);
 }
 
 /* テスト関数
@@ -182,7 +246,14 @@ void testData(const float *A1, const float *b1, const float *A2, const float *b2
     file_prefix: 保存先ファイルプレフィックス
 */
 void main_study(int epoc, float study_rate, char *file_prefix) {
+    char logmes[100];
+    initLog(file_prefix);
+    snprintf(logmes, 100, "%s%d", "Epoc\t", epoc);
+    writeLog(logmes);
+    snprintf(logmes, 100, "%s%f", "Study Rate\t", study_rate);
+    writeLog(logmes);
     printf("--- Study Mode ---\n");
+
     clock_t t_start, t_end;
     t_start = clock();
 
@@ -204,6 +275,7 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
     rand_init_bm(10 * 100, A3, 100);
     rand_init_bm(10, b3, 100);
 
+    writeLog("\nEpoc\tRate(Test)\tRate(Study)\tLoss(Test)\tLoss(Study)");
     for (int j = 0; j < epoc; j++) {
         printf("[Epoc %d] ", j + 1);
 
@@ -218,8 +290,15 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
         if (debugMode >= 1) printf("Test Finished\n");
 
         printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f(StudyData: %f)\n", testRate, stdRate, avgTestLoss, avgStdLoss);
+        snprintf(logmes, 100, "%d\t%f\t%f\t%f\t%f", j + 1, testRate, stdRate, avgTestLoss, avgStdLoss);
+        writeLog(logmes);
+        
+        study_rate *= 0.9;
     }
     t_end = clock();
+    printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
+    snprintf(logmes, 100, "%s%f", "Elapsed[s] = ", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
+    writeLog(logmes);
 
     printf("[Saving...] ");
 
@@ -233,7 +312,7 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
     save(f3, 10, 100, A3, b3);
     printf("Finished.\n");
 
-    printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
+    writeLogToFile();
 }
 
 /* 推論モードメイン関数

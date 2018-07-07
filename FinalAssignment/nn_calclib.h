@@ -71,6 +71,11 @@ void divide(int n, float x, float * o) {
         o[j] /= x;
     }
 }
+void matpow(int n, float *o) {
+    for (int j = 0; j < n; j++) {
+        o[j] = o[j] * o[j];
+    }
+}
 
 // 補助関数
 void add(int n, const float * x, float * o) {
@@ -113,36 +118,4 @@ void shuffle(int n, int *x) {
 
 float cross_entropy_error(const float * y, int t) {
     return - log(y[t] + 1e-7);
-}
-
-// ファイル読込・書込
-void save(const char *filename, int m, int n, const float *A, const float *b) {
-    FILE *fpp;
-
-    fpp = fopen( filename, "wb" );
-    if( fpp == NULL )
-    {
-        printf("Error: Can't save\n");
-        return;
-    }
-
-    fwrite(A, sizeof(float), m * n, fpp);
-    fwrite(b, sizeof(float), m, fpp);
-
-    fclose(fpp);
-}
-void load(const char *filename, int m, int n, float *A, float *b) {
-    FILE *fpp;
-
-    fpp = fopen( filename, "rb" );
-    if( fpp == NULL )
-    {
-        printf("Error: Can't save\n");
-        return;
-    }
-
-    fread(A, sizeof(float), m * n, fpp);
-    fread(b, sizeof(float), m, fpp);
-
-    fclose(fpp);
 }
