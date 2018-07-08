@@ -126,3 +126,23 @@ void initLog(const char *fileprefix) {
     time_t timer = time(NULL);
     strftime(date_str, sizeof(date_str), "%x %H:%M:%S", localtime(&timer));
 }
+
+// プログレスバーの表示
+const char rotateChar[] = {'/', '-', '\\', '|', '-', '\\', '|'};
+const int ROTATECHAR_LENGTH = 7;
+int progressing = -1;
+void printProgressBar(float progress) {
+    if (progressing == -1) {
+        progressing = 0;
+    } else {
+        progressing = (progressing + 1) % ROTATECHAR_LENGTH;
+    }
+
+    int pmax = progress / 5;
+    printf("[%-20.*s] %c %.1f%%\r", pmax, "********************", rotateChar[progressing], progress);
+}
+void eraseProgressBar() {
+    if (progressing == -1) return;
+    printf("\033[2K\033[G");
+    progressing = -1;
+}

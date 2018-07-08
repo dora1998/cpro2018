@@ -114,6 +114,7 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
         updateParam(A1, b1, A2, b2, A3, b3, 
             a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
             n, study_rate);
+        /*f (studyTimes % 5 == 0)*/ printProgressBar(k * 80.0 / studyTimes);
     }
 
     free(a_dA1);
@@ -227,6 +228,7 @@ void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b
 void testData(const float *A1, const float *b1, const float *A2, const float *b2, const float *A3, const float *b3, 
                 float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
     int sum = 0;
+    float startp = count == test_count ? 80.0 : 90.0;
     *l = 0;
     for(int k = 0; k < count; k++) {
         float y[10];
@@ -234,6 +236,7 @@ void testData(const float *A1, const float *b1, const float *A2, const float *b2
             sum++;
         }
         *l += cross_entropy_error(y, res_y[k]);
+        printProgressBar(startp + 10.0 * k / count);
     }
     
     *l /= 1.0 * count;
@@ -277,8 +280,7 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
 
     writeLog("\nEpoc\tRate(Test)\tRate(Study)\tLoss(Test)\tLoss(Study)");
     for (int j = 0; j < epoc; j++) {
-        printf("[Epoc %d] ", j + 1);
-
+        printProgressBar(0.0);
         // (a)(b)
         studyImage(A1, b1, A2, b2, A3, b3, minipatch_n, study_rate);
 
@@ -287,8 +289,10 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
         float testRate, stdRate, avgTestLoss, avgStdLoss;
         testData(A1, b1, A2, b2, A3, b3, test_x, test_count, test_y, &testRate, &avgTestLoss);
         testData(A1, b1, A2, b2, A3, b3, train_x, train_count, train_y, &stdRate, &avgStdLoss);
+        eraseProgressBar();
         if (debugMode >= 1) printf("Test Finished\n");
 
+        printf("[Epoc %d] ", j + 1);
         printf("Test: %.2f%%(StudyData: %.2f%%), Loss Avg: %f(StudyData: %f)\n", testRate, stdRate, avgTestLoss, avgStdLoss);
         snprintf(logmes, 100, "%d\t%f\t%f\t%f\t%f", j + 1, testRate, stdRate, avgTestLoss, avgStdLoss);
         writeLog(logmes);
@@ -343,6 +347,10 @@ void main_inference(char *prefix, float *x) {
 }
 
 int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Input Error!!\nSample: ./main_NN6 study [epoc] [study_rate] [file_prefix]\nSample: ./main_NN6 inf [studydata_prefix] [x]\n");
+        return 0;
+    }
     srand(time(NULL));
 
     load_mnist(&train_x, &train_y, &train_count,
