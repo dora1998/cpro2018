@@ -118,7 +118,7 @@ void writeLog(const char *mes) {
     strcat(logbuf, mes);
     strcat(logbuf, "\n");
 }
-// ログ日時情報記録関数
+// ログ日時情報記録関数(fileprefix: ファイル接頭辞)
 void initLog(const char *fileprefix) {
     snprintf(logfname, sizeof(logfname), "%s%s", fileprefix, ".log");
 
@@ -127,10 +127,10 @@ void initLog(const char *fileprefix) {
     strftime(date_str, sizeof(date_str), "%x %H:%M:%S", localtime(&timer));
 }
 
-// プログレスバーの表示
 const char rotateChar[] = {'/', '-', '\\', '|', '-', '\\', '|'};
 const int ROTATECHAR_LENGTH = 7;
 int progressing = -1;
+// プログレスバーの表示(progress: 進捗(0~100))
 void printProgressBar(float progress) {
     if (progressing == -1) {
         progressing = 0;
@@ -141,6 +141,7 @@ void printProgressBar(float progress) {
     int pmax = progress / 5;
     printf("[%-20.*s] %c %.1f%%\r", pmax, "********************", rotateChar[progressing], progress);
 }
+// プログレスバーの消去
 void eraseProgressBar() {
     if (progressing == -1) return;
     printf("\033[2K\033[G");

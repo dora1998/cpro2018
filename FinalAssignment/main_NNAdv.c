@@ -212,9 +212,9 @@ void recalc_AdaGrad(const int num, const int M, const int N, const int n, const 
 void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
                 float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
                 const int n, const float srate) {
-    recalc_AdaGrad(0, 50, 784, n, srate, A1, b1, dA1, db1);
-    recalc_AdaGrad(1, 100, 50, n, srate, A2, b2, dA2, db2);
-    recalc_AdaGrad(2, 10, 50, n, srate, A3, b3, dA3, db3);
+    recalc_Momentum(0, 50, 784, n, srate, A1, b1, dA1, db1);
+    recalc_Momentum(1, 100, 50, n, srate, A2, b2, dA2, db2);
+    recalc_Momentum(2, 10, 50, n, srate, A3, b3, dA3, db3);
 }
 
 /* テスト関数
