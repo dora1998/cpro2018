@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <omp.h>
 #include "nn.h"
 #include "nn_stdlib.h"
 
@@ -102,19 +103,23 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
         init(10 * 100, 0, a_dA3);
         init(10, 0, a_db3);
 
+        #pragma omp for
         for (int l = 0; l < n; l++) {
             backward6(A1, b1, A2, b2, A3, b3, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA1, db1, dA2, db2, dA3, db3);
-            add(50 * 784, dA1, a_dA1);
-            add(50, db1, a_db1);
-            add(100 * 50, dA2, a_dA2);
-            add(100, db2, a_db2);
-            add(10 * 100, dA3, a_dA3);
-            add(10, db3, a_db3);
+            #pragma omp critical(crit_var)
+            {
+                add(50 * 784, dA1, a_dA1);
+                add(50, db1, a_db1);
+                add(100 * 50, dA2, a_dA2);
+                add(100, db2, a_db2);
+                add(10 * 100, dA3, a_dA3);
+                add(10, db3, a_db3);
+            }
         }
         updateParam(A1, b1, A2, b2, A3, b3, 
             a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
             n, study_rate);
-        /*f (studyTimes % 5 == 0)*/ printProgressBar(k * 80.0 / studyTimes);
+        printProgressBar(k * 80.0 / studyTimes);
     }
 
     free(a_dA1);
@@ -190,8 +195,10 @@ void recalc_AdaGrad(const int num, const int M, const int N, const int n, const 
     add(M * N, tmp_dA, hA[num]);
     add(M, tmp_db, hb[num]);
 
-    for (int j = 0; j < M; j++) {
-        for (int k = 0; k < N; k++) {
+    int j = 0, k = 0;
+    #pragma omp parallel private(k)
+    for (j = 0; j < M; j++) {
+        for (k = 0; k < N; k++) {
             dA[j * N + k] *= - srate / (sqrt(hA[num][j * N + k]) + 1e-7);
         }
         db[j] *= - srate / (sqrt(hb[num][j]) + 1e-7);
@@ -212,9 +219,15 @@ void recalc_AdaGrad(const int num, const int M, const int N, const int n, const 
 void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3, 
                 float *dA1, float *db1, float *dA2, float *db2, float *dA3, float *db3, 
                 const int n, const float srate) {
-    recalc_Momentum(0, 50, 784, n, srate, A1, b1, dA1, db1);
-    recalc_Momentum(1, 100, 50, n, srate, A2, b2, dA2, db2);
-    recalc_Momentum(2, 10, 50, n, srate, A3, b3, dA3, db3);
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        recalc_Momentum(0, 50, 784, n, srate, A1, b1, dA1, db1);
+        #pragma omp section
+        recalc_Momentum(1, 100, 50, n, srate, A2, b2, dA2, db2);
+        #pragma omp section
+        recalc_Momentum(2, 10, 50, n, srate, A3, b3, dA3, db3);
+    }
 }
 
 /* テスト関数
@@ -227,19 +240,19 @@ void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b
 */
 void testData(const float *A1, const float *b1, const float *A2, const float *b2, const float *A3, const float *b3, 
                 float *start_x, int count, unsigned char *res_y, float *correct, float *l) {
-    int sum = 0;
-    float startp = count == test_count ? 80.0 : 90.0;
-    *l = 0;
-    for(int k = 0; k < count; k++) {
+    int sum = 0, k = 0;
+    float loss = 0;
+    #pragma omp parallel for reduction(+:loss) reduction(+:sum)
+    for(k = 0; k < count; k++) {
         float y[10];
         if(inference6(A1, b1, A2, b2, A3, b3, start_x + k*width*height, y) == res_y[k]) {
             sum++;
         }
-        *l += cross_entropy_error(y, res_y[k]);
-        printProgressBar(startp + 10.0 * k / count);
+        loss += cross_entropy_error(y, res_y[k]);
     }
     
-    *l /= 1.0 * count;
+    loss /= 1.0 * count;
+    *l = loss;
     *correct = sum * 100.0 / count;
 }
 
@@ -257,8 +270,8 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
     writeLog(logmes);
     printf("--- Study Mode ---\n");
 
-    clock_t t_start, t_end;
-    t_start = clock();
+    struct timespec t_start, t_end;
+    clock_gettime(CLOCK_REALTIME, &t_start);
 
     // 1~3
     int minipatch_n = 100;
@@ -283,12 +296,19 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
         printProgressBar(0.0);
         // (a)(b)
         studyImage(A1, b1, A2, b2, A3, b3, minipatch_n, study_rate);
+        printProgressBar(80.0);
 
         // (c) cf)補題7
         if (debugMode >= 1) printf("Test Start\n");
         float testRate, stdRate, avgTestLoss, avgStdLoss;
-        testData(A1, b1, A2, b2, A3, b3, test_x, test_count, test_y, &testRate, &avgTestLoss);
-        testData(A1, b1, A2, b2, A3, b3, train_x, train_count, train_y, &stdRate, &avgStdLoss);
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            testData(A1, b1, A2, b2, A3, b3, test_x, test_count, test_y, &testRate, &avgTestLoss);
+            #pragma omp section
+            testData(A1, b1, A2, b2, A3, b3, train_x, train_count, train_y, &stdRate, &avgStdLoss);
+        }
+        printProgressBar(100.0);
         eraseProgressBar();
         if (debugMode >= 1) printf("Test Finished\n");
 
@@ -299,9 +319,17 @@ void main_study(int epoc, float study_rate, char *file_prefix) {
         
         study_rate *= 0.9;
     }
-    t_end = clock();
-    printf("Elapsed[s] = %f\n", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
-    snprintf(logmes, 100, "%s%f", "Elapsed[s] = ", (t_end - t_start) * 1.0 / CLOCKS_PER_SEC);
+    clock_gettime(CLOCK_REALTIME, &t_end);
+    long elapsed_sec, elapsed_nsec;
+    if (t_end.tv_nsec < t_start.tv_nsec) {
+        elapsed_sec = t_end.tv_sec - t_start.tv_sec - 1;
+        elapsed_nsec = t_end.tv_nsec + (long int)1.0e+9 - t_start.tv_nsec;
+    } else {
+        elapsed_sec = t_end.tv_sec - t_start.tv_sec;
+        elapsed_nsec = t_end.tv_nsec - t_start.tv_nsec;
+    }
+    printf("Elapsed[s] = %5ld.%06ld\n", elapsed_sec, elapsed_nsec);
+    snprintf(logmes, 100, "%s%5ld.%06ld", "Elapsed[s] = ", elapsed_sec, elapsed_nsec);
     writeLog(logmes);
 
     printf("[Saving...] ");
