@@ -72,3 +72,4 @@ FinalAssignment/main_NNAdv
 /train-labels-idx1-ubyte
 *.bmp
 octave-workspace
+*.png

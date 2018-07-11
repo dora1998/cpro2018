@@ -15,6 +15,7 @@
         "limits": "c",
         "ratio": "c",
         "algorithm": "c",
-        "ios": "c"
+        "ios": "c",
+        "stdlib.h": "c"
     }
 }

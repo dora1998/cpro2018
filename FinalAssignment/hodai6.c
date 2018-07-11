@@ -81,9 +81,8 @@ int main() {
     // 訓練データ train_x + 784*i (i=0,...,train_count-1), train_y[0]~train_y[train_count-1], // テストデータ test_x + 784*i (i=0,...,test_count-1), test_y[0]~test_y[test_count-1],
     // を使用することができる.
 
-    int ans = inference3(A_784x10, b_784x10, train_x);
-    printf("%d %d\n", ans, train_y[0]);
-    int i = 0;
-    save_mnist_bmp(train_x + 784*i, "train_%05d.bmp", i);
+    for (int i = 0; i < 10; i++) {
+        save_mnist_bmp(train_x + 784*i, "train_%05d.bmp", i);
+    }
     return 0;
 }

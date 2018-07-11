@@ -140,6 +140,7 @@ void printProgressBar(float progress) {
 
     int pmax = progress / 5;
     printf("[%-20.*s] %c %.1f%%\r", pmax, "********************", rotateChar[progressing], progress);
+    // fflush(stdout);
 }
 // プログレスバーの消去
 void eraseProgressBar() {

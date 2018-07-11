@@ -87,14 +87,6 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
     float * a_dA3 = malloc(sizeof(float)*10*100);
     float * a_db3 = malloc(sizeof(float)*10);
 
-
-    float * y = malloc(sizeof(float)*10);
-    float * dA1 = malloc(sizeof(float)*784*50);
-    float * db1 = malloc(sizeof(float)*50);
-    float * dA2 = malloc(sizeof(float)*50*100);
-    float * db2 = malloc(sizeof(float)*100);
-    float * dA3 = malloc(sizeof(float)*10*100);
-    float * db3 = malloc(sizeof(float)*10);
     for (int k = 0; k < studyTimes; k++) {
         init(784 * 50, 0, a_dA1);
         init(50, 0, a_db1);
@@ -103,10 +95,19 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
         init(10 * 100, 0, a_dA3);
         init(10, 0, a_db3);
 
-        #pragma omp for
+        #pragma omp parallel for
         for (int l = 0; l < n; l++) {
+            float * dA1 = malloc(sizeof(float)*784*50);
+            float * db1 = malloc(sizeof(float)*50);
+            float * dA2 = malloc(sizeof(float)*50*100);
+            float * db2 = malloc(sizeof(float)*100);
+            float * dA3 = malloc(sizeof(float)*10*100);
+            float * db3 = malloc(sizeof(float)*10);
+            float * y = malloc(sizeof(float)*10);
+
             backward6(A1, b1, A2, b2, A3, b3, train_x + 784*index[k * n + l], train_y[index[k * n + l]], y, dA1, db1, dA2, db2, dA3, db3);
-            #pragma omp critical(crit_var)
+
+            #pragma omp critical
             {
                 add(50 * 784, dA1, a_dA1);
                 add(50, db1, a_db1);
@@ -115,6 +116,11 @@ void studyImage(float *A1, float *b1, float *A2, float *b2, float *A3, float *b3
                 add(10 * 100, dA3, a_dA3);
                 add(10, db3, a_db3);
             }
+            
+            free(dA1); free(db1);
+            free(dA2); free(db2);
+            free(dA3); free(db3);
+            free(y);
         }
         updateParam(A1, b1, A2, b2, A3, b3, 
             a_dA1, a_db1, a_dA2, a_db2, a_dA3, a_db3, 
@@ -196,7 +202,7 @@ void recalc_AdaGrad(const int num, const int M, const int N, const int n, const 
     add(M, tmp_db, hb[num]);
 
     int j = 0, k = 0;
-    #pragma omp parallel private(k)
+    #pragma omp parallel for private(k)
     for (j = 0; j < M; j++) {
         for (k = 0; k < N; k++) {
             dA[j * N + k] *= - srate / (sqrt(hA[num][j * N + k]) + 1e-7);
@@ -222,11 +228,11 @@ void updateParam(float *A1, float *b1, float *A2, float *b2, float *A3, float *b
     #pragma omp parallel sections
     {
         #pragma omp section
-        recalc_Momentum(0, 50, 784, n, srate, A1, b1, dA1, db1);
+        recalc_AdaGrad(0, 50, 784, n, srate, A1, b1, dA1, db1);
         #pragma omp section
-        recalc_Momentum(1, 100, 50, n, srate, A2, b2, dA2, db2);
+        recalc_AdaGrad(1, 100, 50, n, srate, A2, b2, dA2, db2);
         #pragma omp section
-        recalc_Momentum(2, 10, 50, n, srate, A3, b3, dA3, db3);
+        recalc_AdaGrad(2, 10, 50, n, srate, A3, b3, dA3, db3);
     }
 }
 

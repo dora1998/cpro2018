@@ -8352,6 +8352,7 @@ typedef uint32_t DWORD;
 typedef uint32_t LONG;
 
 // https://msdn.microsoft.com/en-us/library/dd183374(VS.85).aspx
+#ifdef __MINGW32__
 typedef struct tagBITMAPFILEHEADER {
   WORD  bfType;
   DWORD bfSize;
@@ -8359,6 +8360,15 @@ typedef struct tagBITMAPFILEHEADER {
   WORD  bfReserved2;
   DWORD bfOffBits;
 } __attribute__ ((gcc_struct, packed)) BITMAPFILEHEADER, *PBITMAPFILEHEADER;
+#else
+typedef struct tagBITMAPFILEHEADER {
+  WORD  bfType;
+  DWORD bfSize;
+  WORD  bfReserved1;
+  WORD  bfReserved2;
+  DWORD bfOffBits;
+} __attribute__ ((packed)) BITMAPFILEHEADER, *PBITMAPFILEHEADER;
+#endif
 
 // https://msdn.microsoft.com/en-us/library/dd183376(VS.85).aspx
 typedef struct tagBITMAPINFOHEADER {
